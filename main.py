@@ -1,4 +1,5 @@
-from ui import start_app
+from viewer_complex import *
 
 if __name__ == "__main__":
-    start_app()
+    app = FractalViewer()
+    app.run()
