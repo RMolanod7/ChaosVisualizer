@@ -31,7 +31,6 @@ def subdividir_segmentos(p_1:tuple[float, float], p_2:tuple[float, float], nivel
     p_a = (pa.real, pa.imag) #convertirlos a complejo para q sea mas facil
     p_b = (pb.real, pb.imag)
 
-
     v = pb - pa 
 
     rot_60 = complex(cmath.cos(-cmath.pi/3), cmath.sin(-cmath.pi/3)) 
@@ -91,4 +90,4 @@ def dibujar_copo(centro_x, centro_y, radio, nivel):
 
 # Ejemplo de uso
 # if __name__ == "__main__":
-#     dibujar_copo(0, 0, 1, 4) 
+#     dibujar_copo(0, 0, 1, 4)
