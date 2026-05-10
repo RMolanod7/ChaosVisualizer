@@ -6,7 +6,9 @@ class FractalViewer:
     def __init__(self):
         # declarar medidas basicas del fractal y el llamado a funciones de la interfaz
         self.width = 900
+        self.low_width = 350
         self.height = 700
+        self.low_height = 250
         self.max_iter = 200
         self.c = complex(-0.8, 0.156)
         
@@ -28,10 +30,12 @@ class FractalViewer:
         
         self._dragging = False # para saber si el usuario esta arrastrando o no el mouse
         self._drag_start = None # guarda el ultimo punto del mouse en coordenadas del plano complejo
+        self.last_render_pos = None ########################################################3
     
         self._build_controls() # crear los botones y los sliders de la interfaz
         self._connect_events() # conectar el evento del zoom del mouse
-        self.render() # renderizar la figura para actualizarla y generarla
+        ##############################################################3
+        self.render(full_quality= True) # renderizar la figura para actualizarla y generarla
         
     def _build_controls(self):
         # boton para cambiar de fractal
@@ -71,17 +75,17 @@ class FractalViewer:
         # cambiar el tipo de fractal y los ejes de inicio
         self.fractal_type = label
         self.xmin, self.xmax, self.ymin, self.ymax = self.views[label]
-        self.render() # se redibuja el fractal nuevo
+        self.render(full_quality= True) # se redibuja el fractal nuevo
         
     def change_iter(self, val): # las funciones on_change y on_clicked le pasan un parametro a la funcion que llaman (en este caso val)
         # cambiar el numero de iteraciones
         self.max_iter = int(val)
-        self.render()
+        self.render(full_quality= True)
         
     def change_c(self, val):
         self.c = complex(self.slider_creal.val, self.slider_cimag.val) # actualizar el nuevo valor de c
         if self.fractal_type == "julia": # renderizar solo si se esta viendo el fractal de julia
-            self.render()        
+            self.render(full_quality= True)        
             
     def reset_view(self, event): # aunque no se usa el event se le paso un parametro
         # reiniciar los valores del inicio
@@ -93,17 +97,25 @@ class FractalViewer:
             self.slider_creal.set_val(-0.8)
             self.slider_cimag.set_val(0.156)
         
-        self.render()
+        self.render(full_quality= True)
         
-    def render(self):
+    def render(self, full_quality= True):
+        #########################################
+        if full_quality:
+            width = self.width
+            height = self.height
+        else:
+            width = self.low_width
+            height = self.low_height
+        
         # parametros
         params = {
             "xmin" : self.xmin,
             "xmax" : self.xmax,
             "ymin" : self.ymin,
             "ymax" : self.ymax,
-            "width" : self.width,
-            "height" : self.height,
+            "width" : width,
+            "height" : height,
             "max_iter" : self.max_iter,
             "c" : self.c
         }
@@ -119,7 +131,7 @@ class FractalViewer:
                 extent = [self.xmin, self.xmax, self.ymin, self.ymax], # region del plano donde se visualiza la imagen
                 cmap = "inferno", # gama de colores
                 origin =  "lower", # dibujar de abajp hacia arriba
-                interpolation= "bilinear" # hace que se vea mejor la imagen, hace como un degradado
+                interpolation= "nearest" #####################################################33
             )
             # anadir etiquetas a los ejes coordenados
             self.ax.set_xlabel("Eje X")
@@ -169,7 +181,7 @@ class FractalViewer:
         self.ymin = ymid - yrange / 2
         self.ymax = ymid + yrange / 2
         
-        self.render()
+        self.render(full_quality= True)
         
     def _on_scroll(self, event):
         # verificar si el mouse esta dentro o no del dibujo
@@ -206,12 +218,17 @@ class FractalViewer:
                 self.ymin = event.ydata - height / 2
                 self.ymax = event.ydata + height / 2
                 
-                self.render()
-        elif self.button == 3: # click derecho para arrastrar
+                self.render(full_quality= True)
+        elif event.button == 3: # click derecho para arrastrar
             self._dragging = True # comienza el arrastre
             self._drag_start = (event.xdata, event.ydata) # coordenadas donde inicia el arrastre
         
     def _on_release(self, event):
+        ########################################
+        if self._dragging:
+            # Renderixar al final con calidad completa
+            self.render(full_quality= True)
+        
         self._dragging = False # termina el arrastre
         self._drag_start = None # no hay coordenada inicial
     
@@ -232,9 +249,9 @@ class FractalViewer:
         if event.xdata is None or event.ydata is None:
             return
         
-        x0, yo = self._drag_start
+        x0, y0 = self._drag_start
         dx = x0 - event.xdata # ver cuanto se arrastra a la derecha/izquierda
-        dy = yo - event.ydata # ver cuanto se arrastra hacia abajo/arriba
+        dy = y0 - event.ydata # ver cuanto se arrastra hacia abajo/arriba
         
         # actualizar bordes de la figura
         self.xmin += dx
@@ -243,7 +260,8 @@ class FractalViewer:
         self.ymax += dy
         
         self._drag_start = (event.xdata, event.ydata) # actualizar punto inicial
-        self.render()
+        ############################################################33
+        self.render(full_quality= False)
         
     def run(self):
         # mostrar todo el programa

@@ -1,81 +1,86 @@
 import numpy as np
+from numba import njit as nj 
 
+@nj(fastmath= True) # Convierte python en codigo maquina optimizado, lo de fastmath es para optimizaciones matematicas agresivas
 def Mandelbrot(xmin, xmax, ymin, ymax, width, height, max_iter): # limites del plano, ancho y largo de la imagen en pixeles
     """
     Del fractal de Mandelbrot
-
-    Devuelve una matriz con el número de iteraciones
-    que tardó cada punto en escapar
+    Devuelve una matriz con el número de iteraciones que tardó cada punto en escapar
     """
-    # crea numeros igualmente distanciados para luego representar los pixeles
-    x = np.linspace(xmin, xmax, width)
-    y = np.linspace(ymin, ymax, height)
+    image = np.zeros((height, width), dtype= np.uint16) # Crea una matriz de height x width que representan los pixeles de la pantalla y los tipos de datos son int de 16 bits sin signo
     
-    # construir la matriz del plano complejo, es como multiplicar un vector mx1 por uno 1xn
-    C = x[np.newaxis, :] + 1j * y[:, np.newaxis] # x[np.newaxis,:] convierte a x en una fila, y al contrario convierte por ejemplo a y en una columna, 1j es i en py
-    Z = np.zeros_like(C, dtype= np.complex128) # matriz de ceros, como la ecuacion de Mandelbrot empieza en cero para verificar si pertenece o no el punto luego
-    
-    output = np.zeros(C.shape, dtype= np.int32) # empezar a crear la salida, que es basicamente cuanto demora en escapar cada punto
-    mask = np.ones(C.shape, dtype= bool) # una mascara de bits para ver que puntos siguen o no activos
-    
-    # el bucle principal de la funcion, ver cuantas veces se iterara
-    for i in range(max_iter):
-        # ecuacion de Mandelbroot, para verficar los puntos que siguen activos
-        Z[mask] = Z[mask]**2 + C[mask] # evaluar en una matriz (Z) una mascara de bits (mask) hace que solo trabaje con los trues
-        escaped = np.abs(Z) > 2 # evalua la condicion booleana de > 2 en cada elemento de Z y crea una matriz booleana
+    # Para recorrer las filas
+    for y in range(height):
+        cy = ymin + (y / height) * (ymax - ymin) # Transforma coordenadas y de pantalla a coordenadas y matematicas
         
-        # mask me dice True si el punto esta activo y escaped si se escapo en esta iteracion o no
-        newly_escaped = escaped & mask # hace un and a cada elemento de ambas matrices, devuelve los que se escaparon
-        output[newly_escaped] = i + 1 # guarda en que iteracion se escapo cada punto 
-        mask &= ~escaped # quitar de mask los que escaparon
+        # Para recorrer las columnas
+        for x in range(width):
+            cx = xmin + (x / width) * (xmax - xmin) # Transforma coordenadas x de pantalla a coordenadas x matematicas
+            
+            q = (cx - 0.25) ** 2 + cy ** 2 # Calcular una expresion geometrica para hacer la siguiente mas sencilla
+            
+            if q * (q + (cx - 0.25)) <= 0.25 * cy ** 2: # Verificar si el punto esta en el circulo grande principal del fractal gemetricamente
+                image[y, x] = max_iter # los dibujo de amarillo
+                continue
+            
+            if (cx + 1) ** 2 + cy ** 2 <= 0.0625: # Verificar si el punto esta en el cirulo pequeno izquierdo del fractal matematicamente
+                image[y, x] = max_iter # los dibujo de amarillo
+                continue
+            
+            # Ahora con el resto de puntos
+            zx = 0.0
+            zy = 0.0
+            
+            iteration = 0
+            
+            # Antes escapaba cuando |y|>2 pero ahora y=zx+zy*i entonces escapa cuando zx^2+zy^2>4
+            while zx ** 2 + zy ** 2 <= 4.0 and iteration <= max_iter: # Trabajar con float es mucho mas eficiente que con complejos
+                # La ecuacion de mandelbrot es z = z^2 + c, tomando z = zx+zy*i y despejando
+                xtemp = zx ** 2 - zy ** 2 + cx # zx = zx^2 - zy^2 + cx
+                zy = 2.0 * zx * zy + cy # zy*i = (2*zx*zy + cy)*i 
+                zx = xtemp # Hay que hacer la variable xtemp para no modificar zx antes de tiempo
+                
+                iteration += 1 
+            
+            # Guarda en cuantas iteraciones logro escapar el punto para definir de que color se dibuja
+            image[y, x] = iteration # Menos iteraciones mas negro (no pertenece al fractal), mas iteraciones mas amarillo (si lo hace)
         
-        # condicion para parar el bucle, si ya todos escaparon
-        if not mask.any():
-            break
-        
-    output[mask] = max_iter # los puntos que siguen activos despues de todas las operaciones se les asigna la ultima iteracion
-    return output
-         
-def Julia(xmin, xmax, ymin, ymax, width, height, c, max_iter): # aqui c es constante, lo que cambia es el empezar de z
+    return image
+                
+@nj(fastmath= True)  # Muchos procesos analogos a MAndelbrot
+def Julia(xmin, xmax, ymin, ymax, width, height, max_iter, creal, cimag): # aqui c es constante, lo que cambia es el empezar de z
     """
     Del fractal de Julia para un valor fijo c
-
-    Devuelve una matriz con el número de iteraciones
-    que tardó cada punto en escapar
+    Devuelve una matriz con el número de iteracionesque tardó cada punto en escapar
     """
-    x = np.linspace(xmin, xmax, width)
-    y = np.linspace(ymin, ymax, height)
-    Z = x[np.newaxis, :] + 1j * y[:, np.newaxis] # cada punto empieza con su propio valor complejo ahora
+    image = np.zeros((height, width), dtype= np.uint16)
     
-    output = np.zeros (Z.shape, dtype= np.int32) # igual para saber en cuantas iteraciones han escapado
-    mask = np.ones(Z.shape, dtype= bool) # igual empiezan todos activos
-    
-    for i in range(max_iter):
-        Z[mask] = Z[mask]**2 + c # aqui c es constante
-        escaped = np.abs(Z) > 2
-        newly_escaped = mask & escaped
+    for y in range(height):
+        zy0 = ymin + (y / height) * (ymax - ymin)
         
-        # misma idea
-        output[newly_escaped] = i + 1 
-        mask &= ~escaped
-        
-        if not mask.any():
-            break
-        
-    output[mask] = max_iter
-    return output
+        for x in range(width):
+            zx0 = xmin + (x / width) * (xmax - xmin)
+            
+            zx = zx0
+            zy = zy0
+            
+            iteration = 0
+            
+            # En Julia no existen pedazos obvios importantes que dibujar antes
+            while zx ** 2 + zy ** 2 <= 4.0 and iteration <= max_iter: # Misma logica que Mandelbrot
+                xtemp = zx ** 2 - zy ** 2 + creal
+                zy = 2.0 * zx * zy + cimag
+                zx = xtemp
+                
+                iteration += 1
+                
+            image[y, x] = iteration
+            
+    return image
         
 def generate_complex_fractal(fractal_type, params):
     """
     Generador unificado para fractales complejos
-
-    Los tipos de fractales son:
-        - "mandelbrot"
-        - "julia"
-
-    Y los parametros que se pasan:
-        xmin, xmax, ymin, ymax, width, height, max_iter
-        y para Julia además: c
     """
     # definir parametros que se pasan en params
     xmin = params.get("xmin", -2.5)
@@ -90,7 +95,7 @@ def generate_complex_fractal(fractal_type, params):
         return Mandelbrot(xmin, xmax, ymin, ymax, width, height, max_iter)
     elif fractal_type == "julia":
         c = params.get("c", complex(-0.8, 0.156))
-        return Julia(xmin, xmax, ymin, ymax, width, height, c, max_iter)
+        return Julia(xmin, xmax, ymin, ymax, width, height, max_iter, c.real, c.imag)
     else:
         raise ValueError("Tipo de fractal no válido.")
     
